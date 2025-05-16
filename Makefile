@@ -1,20 +1,22 @@
-# Makefile
+# Makefile for macOS M2
 .PHONY: all build run clean
+
+RUSTFLAGS := "-C link-arg=-fuse-ld=lld -C link-arg=-nostartfiles"
+LLVM_PATH := $(shell brew --prefix llvm)
 
 all: build run
 
 build:
-	cargo build --target x86_64-rust_os.json
+	RUSTFLAGS=$(RUSTFLAGS) cargo build --target x86_64-rust_os.json
 
-iso: build
-	mkdir -p target/isofiles/boot/grub
-	cp target/x86_64-rust_os/debug/rust-os target/isofiles/boot/kernel.bin
-	cp grub.cfg target/isofiles/boot/grub
-	grub-mkrescue -o target/rust-os.iso target/isofiles
+run: build
+	cargo bootimage
+	qemu-system-x86_64 -drive format=raw,file=target/x86_64-rust_os/debug/bootimage-rust-os.bin
 
-run: iso
-	qemu-system-x86_64 -cdrom target/rust-os.iso
+debug: build
+	cargo bootimage
+	qemu-system-x86_64 -drive format=raw,file=target/x86_64-rust_os/debug/bootimage-rust-os.bin -s -S &
+	rust-gdb target/x86_64-rust_os/debug/rust-os -ex "target remote :1234"
 
 clean:
 	cargo clean
-	rm -rf target/isofiles target/rust-os.iso

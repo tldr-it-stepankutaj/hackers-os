@@ -1,17 +1,16 @@
-# Cargo.toml
 [package]
 name = "hackers-os"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bootloader = "0.9.23"
-volatile = "0.2.6"
-spin = "0.5.2"
-x86_64 = "0.14.2"
-uart_16550 = "0.2.0"
-pic8259 = "0.10.1"
-pc-keyboard = "0.5.0"
+bootloader = { version = "0.11.10", features = ["map_physical_memory"] }
+volatile = "0.6.1"
+spin = "0.10.0"
+x86_64 = "0.15.2"
+uart_16550 = "0.3.2"
+pic8259 = "0.11.0"
+pc-keyboard = "0.8.0"
 
 [dependencies.lazy_static]
 version = "1.0"
@@ -22,3 +21,7 @@ panic = "abort"
 
 [profile.release]
 panic = "abort"
+
+# This configuration will help with cross-compilation
+[build-dependencies]
+bootloader = "0.11.10"

@@ -5,6 +5,8 @@
 #![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
+use hackers_os::serial_println;
+
 mod vga_buffer;
 mod interrupts;
 mod memory;
@@ -55,6 +57,10 @@ pub extern "C" fn _start() -> ! {
 
     println!("It did not crash!");
     loop {}
+}
+
+fn test_main() {
+    todo!()
 }
 
 // Test functions
