@@ -1,27 +1,27 @@
-; boot.asm
+; boot.asm - Základní multiboot entrypoint
 bits 32
-section .multiboot
-    align 4
-    ; Multiboot header format
+section .text
+align 4
+; Multiboot hlavička musí být na začátku .text sekce
+multiboot_header:
     dd 0x1BADB002               ; Magic number
     dd 0x00000003               ; Flags: align modules to 4KB boundaries, provide memory map
     dd -(0x1BADB002 + 0x00000003) ; Checksum
 
-section .text
 global _start
 extern kernel_main
 
 _start:
-    ; Set up the stack
+    ; Nastavení zásobníku
     mov esp, stack_top
 
-    ; Pass Multiboot info to kernel
+    ; Předání informací o Multibootu kernelu
     push ebx
 
-    ; Call the kernel
+    ; Volání kernelu
     call kernel_main
 
-    ; If the kernel returns, just hang
+    ; Pokud se kernel vrátí, zastavíme systém
     cli
 .hang:
     hlt

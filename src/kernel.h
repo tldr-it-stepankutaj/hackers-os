@@ -2,18 +2,29 @@
 #ifndef KERNEL_H
 #define KERNEL_H
 
-#include <stdint.h>
-#include <stddef.h>
+// Define integer types directly instead of including stdint.h
+typedef signed char         int8_t;
+typedef short               int16_t;
+typedef int                 int32_t;
+typedef long long           int64_t;
 
-// Define some useful types
-typedef uint8_t u8;
+typedef unsigned char       uint8_t;
+typedef unsigned short      uint16_t;
+typedef unsigned int        uint32_t;
+typedef unsigned long long  uint64_t;
+
+typedef uint32_t            size_t;
+typedef int32_t             ptrdiff_t;
+
+// Define useful aliases
+typedef uint8_t  u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
-typedef int8_t i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
+typedef int8_t   i8;
+typedef int16_t  i16;
+typedef int32_t  i32;
+typedef int64_t  i64;
 
 // IO functions
 static inline void outb(u16 port, u8 value) {
