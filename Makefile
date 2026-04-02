@@ -5,7 +5,7 @@ BUILD_DIR = build
 TOOLCHAIN = aarch64-toolchain.cmake
 VERSION ?= dev
 
-.PHONY: all build run run-disk debug clean disk-image apps release install-deps
+.PHONY: all build run run-disk debug clean disk-image apps iso release install-deps
 
 all: build
 
@@ -33,7 +33,11 @@ apps:
 disk-image:
 	./scripts/make-disk-image.sh
 
-# Build release artifacts (QEMU tar.gz, RPi SD card ZIP, disk image)
+# Create bootable UEFI ISO
+iso: build
+	./scripts/make-iso.sh
+
+# Build release artifacts (ISO, QEMU tar.gz, RPi SD card ZIP, disk image)
 release:
 	./scripts/make-release.sh $(VERSION)
 

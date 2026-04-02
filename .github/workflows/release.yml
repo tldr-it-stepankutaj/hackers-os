@@ -24,7 +24,8 @@ jobs:
             cmake make \
             mtools dosfstools \
             qemu-system-aarch64 \
-            curl wget
+            xorriso grub-efi-arm64-bin \
+            curl wget zip
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -95,6 +96,11 @@ jobs:
           echo "Developed by TLDR;IT" >> /tmp/welcome.txt
           echo "https://www.tldr-it.com" >> /tmp/welcome.txt
           mcopy -i $DISK /tmp/welcome.txt ::welcome.txt
+
+      - name: Create bootable ISO
+        run: |
+          ./scripts/make-iso.sh
+          [ -f build/hackers-os.iso ] && cp build/hackers-os.iso .
 
       - name: Create QEMU package
         run: |
@@ -217,10 +223,11 @@ jobs:
 
             | File | Description |
             |------|-------------|
+            | `hackers-os.iso` | Bootable UEFI ISO (GRUB ARM64 EFI) |
             | `hackers-os-qemu.tar.gz` | QEMU package (kernel + run script + disk image) |
             | `hackers-os-rpi-sdcard.zip` | Raspberry Pi SD card (extract to FAT32 SD card, boot) |
             | `hackers-os-disk.img` | FAT32 disk image with bundled apps |
-            | `kernel.bin` | Raw kernel binary (48KB) |
+            | `kernel.bin` | Raw kernel binary |
             | `kernel8.img` | Raspberry Pi kernel image |
             | `kernel.elf` | ELF with debug symbols |
 
@@ -238,6 +245,7 @@ jobs:
 
             Developed by [TLDR;IT](https://www.tldr-it.com)
           files: |
+            hackers-os.iso
             hackers-os-qemu.tar.gz
             hackers-os-rpi-sdcard.zip
             hackers-os-disk.img
@@ -256,6 +264,7 @@ jobs:
             build/kernel.bin
             build/kernel8.img
             build/kernel.elf
+            hackers-os.iso
             hackers-os-qemu.tar.gz
             hackers-os-rpi-sdcard.zip
             hackers-os-disk.img
