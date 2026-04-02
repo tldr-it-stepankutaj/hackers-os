@@ -1,4 +1,5 @@
 #include "linux_syscalls.h"
+#include "../interrupts/exception.h"
 #include "../uart/uart.h"
 #include "../mm/pages.h"
 #include "../mm/mmu.h"
@@ -249,16 +250,26 @@ static i64 sys_ioctl(u64 fd, u64 cmd, u64 arg) {
 // Process: exit, getpid, gettid, set_tid_address, clone
 // ============================================================
 
+// From syscall.cpp
+extern ExceptionFrame *get_current_syscall_frame();
+extern "C" u64 kernel_return_addr;
+
 static i64 sys_exit(u64 code) {
     Process *proc = Process_::get_current();
     if (proc) {
         UART::printf("[pid %u] exit(%u)\n", (u64)proc->pid, code);
         proc->state = ProcessState::ZOMBIE;
     }
-    Scheduler::yield();
-    // Should not return
-    Arch::halt();
-    return 0;
+
+    // Modify exception frame so eret returns to kernel, not EL0
+    ExceptionFrame *frame = get_current_syscall_frame();
+    if (frame && kernel_return_addr) {
+        frame->elr = kernel_return_addr;
+        frame->spsr = 0x3c5;  // EL1h, DAIF masked
+    } else {
+        Arch::halt();
+    }
+    return static_cast<i64>(code);
 }
 
 static i64 sys_exit_group(u64 code) {

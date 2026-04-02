@@ -8,6 +8,7 @@
 static IPv4Addr local_ip = {};
 static IPv4Addr gateway_ip = {};
 static IPv4Addr netmask = {};
+static IPv4Addr dns_server = {};
 static MacAddr local_mac = {};
 static u16 ip_id_counter = 1;
 
@@ -216,20 +217,23 @@ void init() {
 
     local_mac = VirtioNet::get_mac();
 
-    // Default configuration (QEMU user networking: 10.0.2.x)
-    local_ip = make_ip(10, 0, 2, 15);
-    gateway_ip = make_ip(10, 0, 2, 2);
-    netmask = make_ip(255, 255, 255, 0);
+    // Try DHCP first
+    if (!DHCP::discover()) {
+        // Fallback to static config (QEMU user networking defaults)
+        local_ip = make_ip(10, 0, 2, 15);
+        gateway_ip = make_ip(10, 0, 2, 2);
+        netmask = make_ip(255, 255, 255, 0);
+        dns_server = make_ip(10, 0, 2, 3);
+        UART::puts("  DHCP failed, using static config\n");
+    }
 
-    UART::printf("  [ok] Network: %u.%u.%u.%u gw %u.%u.%u.%u\n",
-                 (u64)(local_ip.addr & 0xFF),
-                 (u64)((local_ip.addr >> 8) & 0xFF),
-                 (u64)((local_ip.addr >> 16) & 0xFF),
-                 (u64)((local_ip.addr >> 24) & 0xFF),
-                 (u64)(gateway_ip.addr & 0xFF),
-                 (u64)((gateway_ip.addr >> 8) & 0xFF),
-                 (u64)((gateway_ip.addr >> 16) & 0xFF),
-                 (u64)((gateway_ip.addr >> 24) & 0xFF));
+    UART::printf("  [ok] Network: %u.%u.%u.%u gw %u.%u.%u.%u dns %u.%u.%u.%u\n",
+                 (u64)(local_ip.addr & 0xFF), (u64)((local_ip.addr >> 8) & 0xFF),
+                 (u64)((local_ip.addr >> 16) & 0xFF), (u64)((local_ip.addr >> 24) & 0xFF),
+                 (u64)(gateway_ip.addr & 0xFF), (u64)((gateway_ip.addr >> 8) & 0xFF),
+                 (u64)((gateway_ip.addr >> 16) & 0xFF), (u64)((gateway_ip.addr >> 24) & 0xFF),
+                 (u64)(dns_server.addr & 0xFF), (u64)((dns_server.addr >> 8) & 0xFF),
+                 (u64)((dns_server.addr >> 16) & 0xFF), (u64)((dns_server.addr >> 24) & 0xFF));
 }
 
 void poll() {
@@ -239,8 +243,10 @@ void poll() {
 void set_ip(IPv4Addr ip) { local_ip = ip; }
 void set_gateway(IPv4Addr gw) { gateway_ip = gw; }
 void set_netmask(IPv4Addr mask) { netmask = mask; }
+void set_dns(IPv4Addr dns) { dns_server = dns; }
 IPv4Addr get_ip() { return local_ip; }
 IPv4Addr get_gateway() { return gateway_ip; }
+IPv4Addr get_dns() { return dns_server; }
 MacAddr get_mac() { return local_mac; }
 
 bool send_frame(const void *data, u32 len) {

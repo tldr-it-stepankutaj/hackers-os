@@ -141,4 +141,19 @@ bool send_ip(IPv4Addr dst, u8 protocol, const void *payload, u32 len);
 // ARP
 MacAddr arp_resolve(IPv4Addr ip);
 
+// DNS
+void set_dns(IPv4Addr dns);
+IPv4Addr get_dns();
+
 } // namespace Net
+
+// DHCP
+namespace DHCP {
+    bool discover();  // Run full DHCP D-O-R-A, configure Net
+}
+
+// DNS resolver
+namespace DNS {
+    // Resolve hostname to IPv4 address, returns 0.0.0.0 on failure
+    IPv4Addr resolve(const char *hostname);
+}

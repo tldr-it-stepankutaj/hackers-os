@@ -10,6 +10,7 @@ set(KERNEL_SOURCES
     src/boot/start.S
     src/boot/vectors.S
     src/process/context.S
+    src/process/enter_user.S
 
     src/kernel/kernel.cpp
     src/kernel/panic.cpp
@@ -45,6 +46,8 @@ set(KERNEL_SOURCES
     src/net/net.cpp
     src/net/tcp.cpp
     src/net/socket.cpp
+    src/net/dhcp.cpp
+    src/net/dns.cpp
 )
 
 # Include directories

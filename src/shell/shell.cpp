@@ -31,6 +31,7 @@ static void cmd_help() {
     UART::puts("  run <file>    - Execute ELF binary\n");
     UART::puts("  ifconfig      - Show network config\n");
     UART::puts("  ping <ip>     - Ping an IP address\n");
+    UART::puts("  nslookup <h>  - DNS lookup\n");
     UART::puts("  info          - System information\n");
     UART::puts("  reboot        - Reboot system\n");
 }
@@ -133,6 +134,20 @@ static void cmd_cat(const char *path) {
     Heap::kfree(buf);
 }
 
+// Defined in enter_user.S
+extern "C" void enter_usermode(u64 entry, u64 user_stack, u64 page_table);
+
+// When a user process exits, the syscall handler jumps back here
+// by restoring kernel page table and returning to EL1
+static volatile bool user_process_exited = false;
+static volatile i64 user_exit_code = 0;
+
+// Called from linux_syscalls.cpp when a user process calls exit/exit_group
+extern "C" void notify_user_exit(i64 code) {
+    user_process_exited = true;
+    user_exit_code = code;
+}
+
 static void cmd_run(const char *path) {
     if (!path || path[0] == '\0') {
         UART::puts("Usage: run <file>\n");
@@ -140,11 +155,39 @@ static void cmd_run(const char *path) {
     }
 
     u32 pid = ELF::load_and_exec(path, path);
-    if (pid) {
-        UART::printf("Started process %u\n", (u64)pid);
-    } else {
+    if (!pid) {
         UART::printf("Failed to run: %s\n", path);
+        return;
     }
+
+    Process *proc = Process_::get(pid);
+    if (!proc) {
+        UART::printf("Process %u not found\n", (u64)pid);
+        return;
+    }
+
+    UART::printf("Running '%s' (pid %u)...\n", path, (u64)pid);
+
+    user_process_exited = false;
+
+    // Enter usermode — eret to EL0
+    // The process will execute until it calls exit() via SVC,
+    // which returns to EL1. The SVC handler processes it and
+    // returns from the exception (eret back to... where?)
+    //
+    // Actually: the SVC handler runs in EL1, handles exit by
+    // marking process as zombie, then the eret from vectors.S
+    // would return to EL0 — but the process is dead.
+    //
+    // Better approach: for exit syscall, don't eret back to EL0.
+    // Instead, restore kernel state and continue.
+    if (proc->page_table && proc->user_entry) {
+        enter_usermode(proc->user_entry, proc->user_stack, proc->page_table);
+    }
+
+    // We get here after the user process exits because the exit syscall
+    // handler modifies ELR_EL1/SPSR_EL1 to return to kernel mode
+    UART::printf("Process %u exited (code %d)\n", (u64)pid, user_exit_code);
 }
 
 static void cmd_info() {
@@ -248,6 +291,24 @@ static void cmd_ping(const char *target) {
     }
 }
 
+static void cmd_nslookup(const char *hostname) {
+    if (!hostname) {
+        UART::puts("Usage: nslookup <hostname>\n");
+        return;
+    }
+
+    UART::printf("Looking up %s...\n", hostname);
+    IPv4Addr result = DNS::resolve(hostname);
+
+    if (result.addr == 0) {
+        UART::printf("  Failed to resolve %s\n", hostname);
+    } else {
+        UART::printf("  %s -> %u.%u.%u.%u\n", hostname,
+                     (u64)(result.addr & 0xFF), (u64)((result.addr >> 8) & 0xFF),
+                     (u64)((result.addr >> 16) & 0xFF), (u64)((result.addr >> 24) & 0xFF));
+    }
+}
+
 static void process_command() {
     cmd_buf[cmd_pos] = '\0';
 
@@ -275,9 +336,13 @@ static void process_command() {
     else if (strcmp(cmd, "run") == 0) cmd_run(arg);
     else if (strcmp(cmd, "ifconfig") == 0) cmd_ifconfig();
     else if (strcmp(cmd, "ping") == 0) cmd_ping(arg);
+    else if (strcmp(cmd, "nslookup") == 0) cmd_nslookup(arg);
     else if (strcmp(cmd, "info") == 0) cmd_info();
     else if (strcmp(cmd, "reboot") == 0) cmd_reboot();
     else UART::printf("Unknown command: %s (type 'help' for commands)\n", cmd);
+
+    // Clean up finished processes
+    Process_::reap_zombies();
 }
 
 namespace Shell {

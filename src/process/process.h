@@ -39,6 +39,7 @@ void init();
 Process *create(const char *name, void (*entry)());
 Process *create_user(const char *name, u64 entry_point, u64 page_table);
 void destroy(u32 pid);
+void reap_zombies();
 Process *get_current();
 Process *get(u32 pid);
 u32 count();

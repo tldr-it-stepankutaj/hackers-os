@@ -19,4 +19,9 @@ bool read_file(const char *path, void *buf, u32 buf_size, u32 *bytes_read);
 bool file_exists(const char *path);
 u32 file_size(const char *path);
 
+// Write support
+bool write_file(const char *path, const void *data, u32 size);
+bool create_file(const char *dir_path, const char *filename);
+bool delete_file(const char *path);
+
 } // namespace FAT32

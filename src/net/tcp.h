@@ -31,6 +31,7 @@ struct TcpConnection {
     u32 snd_nxt;    // next sequence number to send
     u32 snd_una;    // oldest unacknowledged
     u32 rcv_nxt;    // next expected to receive
+    u16 rcv_wnd;    // advertised receive window
 
     // Receive buffer (ring)
     u8 rx_buf[TCP_BUF_SIZE];
@@ -38,9 +39,12 @@ struct TcpConnection {
     u32 rx_tail;
     u32 rx_count;
 
-    // TX buffer
+    // TX retransmission buffer
     u8 tx_buf[TCP_BUF_SIZE];
     u32 tx_len;
+    u32 tx_seq;           // sequence number of tx_buf[0]
+    u64 retransmit_tick;  // when to retransmit
+    u8  retransmit_count; // number of retransmissions
 };
 
 static constexpr u32 MAX_TCP_CONNECTIONS = 16;

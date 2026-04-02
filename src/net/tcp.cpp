@@ -1,9 +1,12 @@
 #include "tcp.h"
 #include "net.h"
 #include "../uart/uart.h"
+#include "../timer/timer.h"
 
 static TcpConnection connections[MAX_TCP_CONNECTIONS];
 static u16 next_ephemeral_port = 49152;
+static constexpr u64 RETRANSMIT_TICKS = 200;   // 2 seconds at 100Hz
+static constexpr u8  MAX_RETRANSMITS = 5;
 
 static u16 tcp_checksum(IPv4Addr src, IPv4Addr dst, const void *tcp_data, u32 tcp_len) {
     // Pseudo-header + TCP segment
@@ -56,9 +59,54 @@ static bool send_tcp_segment(TcpConnection *conn, u8 flags, const void *data, u3
 
     if (ok && (flags & TCP_SYN)) conn->snd_nxt++;
     if (ok && (flags & TCP_FIN)) conn->snd_nxt++;
-    if (ok && data_len > 0) conn->snd_nxt += data_len;
+    if (ok && data_len > 0) {
+        // Save for retransmission
+        if (data_len <= TCP_BUF_SIZE) {
+            memcpy(conn->tx_buf, data, data_len);
+            conn->tx_len = data_len;
+            conn->tx_seq = conn->snd_nxt - data_len;  // seq before increment
+            conn->retransmit_tick = Timer::get_ticks() + RETRANSMIT_TICKS;
+            conn->retransmit_count = 0;
+        }
+        conn->snd_nxt += data_len;
+    }
 
     return ok;
+}
+
+// Check all connections for retransmission timeouts
+static void check_retransmit() {
+    u64 now = Timer::get_ticks();
+    for (u32 i = 0; i < MAX_TCP_CONNECTIONS; i++) {
+        TcpConnection *conn = &connections[i];
+        if (!conn->active || conn->state != TcpState::ESTABLISHED) continue;
+        if (conn->tx_len == 0) continue;
+        if (conn->snd_una >= conn->tx_seq + conn->tx_len) {
+            // All data ACKed, clear retransmit buffer
+            conn->tx_len = 0;
+            continue;
+        }
+        if (now >= conn->retransmit_tick) {
+            if (conn->retransmit_count >= MAX_RETRANSMITS) {
+                // Give up — reset connection
+                conn->state = TcpState::CLOSED;
+                conn->active = false;
+                continue;
+            }
+            // Retransmit unacknowledged data
+            u32 acked = (conn->snd_una > conn->tx_seq) ? conn->snd_una - conn->tx_seq : 0;
+            u32 remaining = conn->tx_len - acked;
+            if (remaining > 0 && remaining <= TCP_BUF_SIZE) {
+                // Temporarily rewind snd_nxt to retransmit
+                u32 saved_nxt = conn->snd_nxt;
+                conn->snd_nxt = conn->snd_una;
+                send_tcp_segment(conn, TCP_ACK | TCP_PSH, conn->tx_buf + acked, remaining);
+                conn->snd_nxt = saved_nxt;
+            }
+            conn->retransmit_count++;
+            conn->retransmit_tick = now + RETRANSMIT_TICKS * (1 << conn->retransmit_count);
+        }
+    }
 }
 
 void tcp_input(const IPv4Header *ip, const u8 *payload, u32 len) {
@@ -316,8 +364,11 @@ i32 send(i32 id, const void *data, u32 len) {
         }
         sent += chunk;
 
-        // Brief poll for ACKs
-        for (int i = 0; i < 10000; i++) Net::poll();
+        // Poll for ACKs and handle retransmits
+        for (int i = 0; i < 10000; i++) {
+            Net::poll();
+            check_retransmit();
+        }
     }
     return static_cast<i32>(sent);
 }
@@ -329,6 +380,7 @@ i32 recv(i32 id, void *buf, u32 len) {
     // Poll until data available or connection closed
     for (int timeout = 0; timeout < 1000000 && conn->rx_count == 0; timeout++) {
         Net::poll();
+        check_retransmit();
         if (conn->state != TcpState::ESTABLISHED &&
             conn->state != TcpState::CLOSE_WAIT) {
             if (conn->rx_count == 0) return 0;

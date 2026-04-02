@@ -3,3 +3,18 @@ target/
 
 build/
 cmake-build-debug/
+
+# Cross-compiled companion app binaries
+apps/network-analyzer
+apps/securitydns
+apps/jwt_inspector
+
+# Disk images
+disk.img
+test-disk.img
+
+# Release artifacts
+release/
+
+# macOS
+.DS_Store

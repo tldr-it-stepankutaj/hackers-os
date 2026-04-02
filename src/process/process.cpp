@@ -138,6 +138,23 @@ void destroy(u32 pid) {
     }
 }
 
+void reap_zombies() {
+    for (u32 i = 1; i < MAX_PROCESSES; i++) {
+        if (process_table[i].state == ProcessState::ZOMBIE) {
+            if (process_table[i].kernel_stack) {
+                for (u64 off = 0; off < KERNEL_STACK_SIZE; off += PAGE_SIZE) {
+                    Pages::free_page(process_table[i].kernel_stack + off);
+                }
+            }
+            // Free user stack pages if allocated
+            // (page table entries still exist but physical pages are freed)
+            process_table[i].state = ProcessState::UNUSED;
+            process_table[i].pid = 0;
+            process_table[i].kernel_stack = 0;
+        }
+    }
+}
+
 Process *get_current() { return current_process; }
 
 Process *get(u32 pid) {
