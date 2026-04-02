@@ -24,7 +24,7 @@ jobs:
             cmake make \
             mtools dosfstools \
             qemu-system-aarch64 \
-            xorriso grub-efi-arm64-bin \
+            xorriso \
             curl wget zip
 
       - name: Setup Go
