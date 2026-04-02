@@ -48,9 +48,8 @@ mmd -i "$EFI_IMG" ::EFI/BOOT || true
 
 # Try to create GRUB EFI binary
 HAVE_GRUB=false
-if command -v grub-mkstandalone &>/dev/null; then
-    # Check if arm64-efi format is available
-    grub-mkstandalone --format=arm64-efi --output=/dev/null --version 2>/dev/null && HAVE_GRUB=true || true
+if command -v grub-mkstandalone &>/dev/null && [ -d /usr/lib/grub/arm64-efi ]; then
+    HAVE_GRUB=true
 fi
 
 if [ "$HAVE_GRUB" = true ]; then
