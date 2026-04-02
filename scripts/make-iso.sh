@@ -29,11 +29,11 @@ mkdir -p "$ISO_DIR"
 
 # Create EFI System Partition (FAT32 image)
 echo "[1/2] Creating EFI System Partition..."
-EFI_SIZE_KB=8192  # 8MB
+EFI_SIZE_KB=2880  # 2.88MB (standard floppy — always works with FAT12)
 dd if=/dev/zero of="$EFI_IMG" bs=1024 count=$EFI_SIZE_KB 2>/dev/null
 
 if command -v mkfs.fat &>/dev/null; then
-    mkfs.fat -F 16 "$EFI_IMG" 2>/dev/null
+    mkfs.fat "$EFI_IMG" 2>/dev/null
 elif command -v mformat &>/dev/null; then
     mformat -i "$EFI_IMG" :: 2>/dev/null
 else
@@ -42,16 +42,15 @@ else
 fi
 
 # Populate EFI partition
-mmd -i "$EFI_IMG" ::EFI 2>/dev/null || true
-mmd -i "$EFI_IMG" ::EFI/BOOT 2>/dev/null || true
+echo "  Creating EFI directory structure..."
+mmd -i "$EFI_IMG" ::EFI || true
+mmd -i "$EFI_IMG" ::EFI/BOOT || true
 
 # Try to create GRUB EFI binary
 HAVE_GRUB=false
 if command -v grub-mkstandalone &>/dev/null; then
     # Check if arm64-efi format is available
-    if grub-mkstandalone --format=arm64-efi --output=/dev/null /dev/null 2>/dev/null; then
-        HAVE_GRUB=true
-    fi
+    grub-mkstandalone --format=arm64-efi --output=/dev/null --version 2>/dev/null && HAVE_GRUB=true || true
 fi
 
 if [ "$HAVE_GRUB" = true ]; then
@@ -83,12 +82,13 @@ else
 fi
 
 # Always add kernel to EFI partition
-mcopy -i "$EFI_IMG" "$KERNEL" ::kernel.bin
+echo "  Copying kernel ($KERNEL → EFI)..."
+mcopy -i "$EFI_IMG" "$KERNEL" ::kernel.bin || { echo "Warning: mcopy kernel failed"; }
 
 # Create startup.nsh (UEFI Shell autorun script — fallback if no GRUB)
 echo "kernel.bin" > /tmp/startup.nsh
-mcopy -i "$EFI_IMG" /tmp/startup.nsh ::startup.nsh
-rm /tmp/startup.nsh
+mcopy -i "$EFI_IMG" /tmp/startup.nsh ::startup.nsh || true
+rm -f /tmp/startup.nsh
 
 # Copy disk image if available
 for img in "$PROJECT_DIR/hackers-os-disk.img" \
