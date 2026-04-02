@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -21,8 +24,20 @@ jobs:
             cmake make \
             mtools dosfstools \
             qemu-system-aarch64 \
-            golang-go \
-            curl wget xorriso grub-common
+            curl wget
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+
+      - name: Checkout companion repos
+        run: |
+          cd ..
+          git clone https://github.com/tldr-it-stepankutaj/dnsutils.git 2>/dev/null || true
+          git clone https://github.com/tldr-it-stepankutaj/network-scanner.git 2>/dev/null || true
+          git clone https://github.com/tldr-it-stepankutaj/jwt_inspector.git 2>/dev/null || true
 
       - name: Build kernel
         run: |
